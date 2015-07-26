@@ -9,7 +9,7 @@ SET(V8_ROOT "${CMAKE_CURRENT_BINARY_DIR}/build_v8" CACHE PATH
 "Where I will put final v8 sources and dependencies in.")
 
 # Everything that will be passed to gyp as command line arguments
-SET(V8_ARGS "-Dv8_enable_i18n_support=0 -Dcomponent=static_library -Dv8_use_snapshot=0" CACHE STRING
+SET(V8_ARGS "-Dv8_enable_i18n_support=0 -Dcomponent=static_library -Dv8_use_snapshot='false'" CACHE STRING
 "What I will pass to GYP before it generates v8 project files.")
 
 # A utility macro that adds GIT url as an external project

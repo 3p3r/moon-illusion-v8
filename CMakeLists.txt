@@ -4,30 +4,15 @@ PROJECT( moon_illusion_v8 )
 FIND_PACKAGE(Git REQUIRED)
 INCLUDE (ExternalProject)
 
+# This "could" be the same as install dir but this is more convenient
 SET(V8_ROOT "${CMAKE_CURRENT_BINARY_DIR}/build_v8" CACHE PATH
 "Where I will put final v8 sources and dependencies in.")
 
-# **********************************************************************
-# Visual representation of wtf is going on in the dependency tree:
-#
-#         gyp    gmock    gtest    cygwin    python_26    icu
-#          |       |        |        |          |          |
-#          +-------+--------+---+----+----------+----------+
-#                               |
-#                               v8
-#                               |
-#                              cv8
-#                               |
-#          +-------+--------+---+----+----------+----------+
-#          |       |        |        |          |          |
-#         cgyp   cgmock   cgtest   ccygwin   cpython_26  cicu
-#          |       |        |        |          |          |
-#          +-------+--------+---+----+----------+----------+
-#                               |
-#                       moon_illusion_v8 :D
-#
-# **********************************************************************
+# Everything that will be passed to gyp as command line arguments
+SET(V8_ARGS "-Dv8_enable_i18n_support=0 -Dcomponent=static_library -Dv8_use_snapshot=0" CACHE STRING
+"What I will pass to GYP before it generates v8 project files.")
 
+# A utility macro that adds GIT url as an external project
 MACRO(ADD_EXTERNAL_PROJECT name git_url)
 EXTERNALPROJECT_ADD(
     ${name}
@@ -43,6 +28,7 @@ EXTERNALPROJECT_ADD(
 )
 ENDMACRO()
 
+# Add everything that needs to be downloaded
 ADD_EXTERNAL_PROJECT(gyp       https://chromium.googlesource.com/external/gyp)
 ADD_EXTERNAL_PROJECT(gmock     https://chromium.googlesource.com/external/gmock)
 ADD_EXTERNAL_PROJECT(gtest     https://chromium.googlesource.com/external/gtest)
@@ -51,64 +37,71 @@ ADD_EXTERNAL_PROJECT(python_26 https://chromium.googlesource.com/chromium/deps/p
 ADD_EXTERNAL_PROJECT(icu       https://chromium.googlesource.com/chromium/deps/icu)
 ADD_EXTERNAL_PROJECT(v8        https://github.com/v8/v8-git-mirror)
 
-# Configure v8:
-ADD_DEPENDENCIES(v8 gyp gmock gtest cygwin python_26 icu)
-EXTERNALPROJECT_GET_PROPERTY(v8 SOURCE_DIR)
-ADD_CUSTOM_TARGET(cv8
-COMMAND ${CMAKE_COMMAND} -E copy_directory ${SOURCE_DIR} ${V8_ROOT}
-DEPENDS v8
-)
+# v8-copy-sources copies all v8 sources to V8_ROOT.
+EXTERNALPROJECT_ADD_STEP(v8 v8-copy-sources
+COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR> ${V8_ROOT}
+COMMENT "v8 base sources are copied to ${V8_ROOT}."
+DEPENDERS build DEPENDEES download)
 
-# cgmock (Configure-gmock):
-EXTERNALPROJECT_GET_PROPERTY(gmock SOURCE_DIR)
-ADD_CUSTOM_TARGET(cgmock
-COMMAND ${CMAKE_COMMAND} -E copy_directory ${SOURCE_DIR} ${V8_ROOT}/testing/gmock
-DEPENDS cv8
-)
+# gmock-copy-sources copies all gmock sources to V8_ROOT/testing/gmock.
+EXTERNALPROJECT_ADD_STEP(gmock gmock-copy-sources
+COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR> ${V8_ROOT}/testing/gmock
+COMMENT "gmock base sources are copied to ${V8_ROOT}."
+DEPENDERS build DEPENDEES download
+DEPENDS v8)
 
-# cgtest (Configure-gtest):
-EXTERNALPROJECT_GET_PROPERTY(gtest SOURCE_DIR)
-ADD_CUSTOM_TARGET(cgtest
-COMMAND ${CMAKE_COMMAND} -E copy_directory ${SOURCE_DIR} ${V8_ROOT}/testing/gtest
-DEPENDS cv8
-)
+# gtest-copy-sources copies all gtest sources to V8_ROOT/testing/gtest.
+EXTERNALPROJECT_ADD_STEP(gtest gtest-copy-sources
+COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR> ${V8_ROOT}/testing/gtest
+COMMENT "gtest base sources are copied to ${V8_ROOT}."
+DEPENDERS build DEPENDEES download
+DEPENDS v8)
 
-# ccygwin (Configure-cygwin):
-EXTERNALPROJECT_GET_PROPERTY(cygwin SOURCE_DIR)
-ADD_CUSTOM_TARGET(ccygwin
-COMMAND ${CMAKE_COMMAND} -E copy_directory ${SOURCE_DIR} ${V8_ROOT}/third_party/cygwin
-DEPENDS cv8
-)
+# cygwin-copy-sources copies all cygwin sources to V8_ROOT/third_party/cygwin.
+EXTERNALPROJECT_ADD_STEP(cygwin cygwin-copy-sources
+COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR> ${V8_ROOT}/third_party/cygwin
+COMMENT "cygwin base sources are copied to ${V8_ROOT}."
+DEPENDERS build DEPENDEES download
+DEPENDS v8)
 
-# cpython_26 (Configure-python_26):
-EXTERNALPROJECT_GET_PROPERTY(python_26 SOURCE_DIR)
-ADD_CUSTOM_TARGET(cpython_26
-COMMAND ${CMAKE_COMMAND} -E copy_directory ${SOURCE_DIR} ${V8_ROOT}/third_party/python_26
-DEPENDS cv8
-)
+# python_26-copy-sources copies all python_26 sources to V8_ROOT/third_party/python_26.
+EXTERNALPROJECT_ADD_STEP(python_26 python_26-copy-sources
+COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR> ${V8_ROOT}/third_party/python_26
+COMMENT "python_26 base sources are copied to ${V8_ROOT}."
+DEPENDERS build DEPENDEES download
+DEPENDS v8)
 
-# cicu (Configure-icu):
-EXTERNALPROJECT_GET_PROPERTY(icu SOURCE_DIR)
-ADD_CUSTOM_TARGET(cicu
-COMMAND ${CMAKE_COMMAND} -E copy_directory ${SOURCE_DIR} ${V8_ROOT}/third_party/icu
-DEPENDS cv8
-)
+# icu-copy-sources copies all icu sources to V8_ROOT/third_party/icu.
+EXTERNALPROJECT_ADD_STEP(icu icu-copy-sources
+COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR> ${V8_ROOT}/third_party/icu
+COMMENT "icu base sources are copied to ${V8_ROOT}."
+DEPENDERS build DEPENDEES download
+DEPENDS v8)
 
-# cgyp (Configure-gyp):
-EXTERNALPROJECT_GET_PROPERTY(gyp SOURCE_DIR)
-ADD_CUSTOM_TARGET(cgyp
-COMMAND ${CMAKE_COMMAND} -E copy_directory ${SOURCE_DIR} ${V8_ROOT}/third_party/gyp
-DEPENDS cv8
-)
+# gyp-copy-sources copies all gyp sources to V8_ROOT/third_party/gyp.
+EXTERNALPROJECT_ADD_STEP(gyp gyp-copy-sources
+COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR> ${V8_ROOT}/third_party/gyp
+COMMENT "gyp base sources are copied to ${V8_ROOT}."
+DEPENDERS build DEPENDEES download
+DEPENDS v8)
 
-# igyp (Install-gyp):
-ADD_CUSTOM_TARGET(igyp
-WORKING_DIRECTORY ${V8_ROOT}/third_party/gyp
+# gyp-install invokes gyp to install it.
+EXTERNALPROJECT_ADD_STEP(gyp gyp-install
 COMMAND setup.py install
-DEPENDS cgyp
-)
+WORKING_DIRECTORY ${V8_ROOT}/third_party/gyp
+DEPENDERS build DEPENDEES gyp-copy-sources
+DEPENDS v8)
 
-ADD_CUSTOM_TARGET(moon_illusion_v8
-DEPENDS cgmock cgtest ccygwin cpython_26 cicu igyp
-COMMAND ${SOURCE_DIR} ${V8_ROOT}/third_party/python_26/python build/gyp_v8
-)
+# This target is the last one and actually runs gyp
+ADD_CUSTOM_TARGET(moon_illusion_v8 ALL
+DEPENDS
+    gyp
+    gmock
+    gtest
+    cygwin
+    python_26
+    icu
+WORKING_DIRECTORY ${V8_ROOT}
+COMMAND python build/gyp_v8 ${V8_ARGS}
+COMMENT "You can grab v8 project files in: '${V8_ROOT}/tools/gyp'"
+VERBATIM)
